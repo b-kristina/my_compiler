@@ -1,43 +1,53 @@
 class ASTNode:
     """Базовый класс для всех узлов AST"""
-    def print_tree(self, indent=0):
-        raise NotImplementedError
+    def __init__(self, node_type: str):
+        self.node_type = node_type
+        self.children = []
+
+    def add_child(self, child):
+        if child is not None:
+            self.children.append(child)
+
 
 class SelectStatement(ASTNode):
-    def __init__(self, columns, table, where=None, order_by=None):
-        self.columns = columns  # список строк или '*'
-        self.table = table      # имя таблицы
-        self.where = where      # узел условия или None
-        self.order_by = order_by  # имя колонки или None
+    """Узел: SELECT запрос"""
+    def __init__(self, table, columns, where=None, order_by=None):
+        super().__init__("SELECT STATEMENT")
+        self.table = table
+        self.columns = columns
+        self.order_by = order_by
+        if where:
+            self.add_child(where)
+        if order_by:
+            self.add_child(order_by)
 
-    def print_tree(self, indent=0):
-        print(" " * indent + "SELECT STATEMENT")
-        print(" " * (indent + 2) + f"Table: {self.table}")
-        print(" " * (indent + 2) + f"Columns: {', '.join(self.columns)}")
-        if self.where:
-            print(" " * (indent + 2) + "WHERE:")
-            self.where.print_tree(indent + 4)
-        if self.order_by:
-            print(" " * (indent + 2) + f"ORDER BY: {self.order_by}")
+
+class WhereClause(ASTNode):
+    """Узел: WHERE условие"""
+    def __init__(self, condition):
+        super().__init__("WHERE")
+        self.add_child(condition)
+
+
+class OrderByClause(ASTNode):
+    """Узел: ORDER BY"""
+    def __init__(self, column):
+        super().__init__("ORDER BY")
+        self.column = column
+
 
 class BinaryCondition(ASTNode):
-    """Условие: column operator value"""
+    """Узел: Условие сравнения (column operator value)"""
     def __init__(self, column, operator, value):
+        super().__init__("CONDITION")
         self.column = column
         self.operator = operator
         self.value = value
 
-    def print_tree(self, indent=0):
-        print(" " * indent + f"CONDITION: {self.column} {self.operator} {self.value}")
 
 class LogicalCondition(ASTNode):
-    """Логическое условие: left AND/OR right"""
-    def __init__(self, left, operator, right):
-        self.left = left
-        self.operator = operator
-        self.right = right
-
-    def print_tree(self, indent=0):
-        print(" " * indent + f"LOGIC: {self.operator}")
-        self.left.print_tree(indent + 2)
-        self.right.print_tree(indent + 2)
+    """Узел: Логическое условие (AND/OR)"""
+    def __init__(self, operator, left, right):
+        super().__init__(f"LOGIC ({operator})")
+        self.add_child(left)
+        self.add_child(right)
