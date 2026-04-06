@@ -1,6 +1,8 @@
 from parser_base import BaseParser, ParsingError
 from sql_ast import (
-    SelectStatement, WhereClause, OrderByClause,
+    RootNode, FieldsNode, TablesNode, ConditionsNode,
+    ValueNode, OperatorNode,
+    WhereClause, OrderByClause,
     BinaryCondition, LogicalCondition
 )
 
@@ -189,7 +191,9 @@ class SqlParser(BaseParser):
         if self.is_parse('=', '>', '<', '!', '>'):
             op = self.parse_comparison_operator()
             value = self.parse_value()
-            result = BinaryCondition(left_col, op, value)
+            result = OperatorNode(op)
+            result.add_child(ValueNode(left_col))
+            result.add_child(ValueNode(value))
         else:
             raise ParsingError(f'Ожидается оператор условия, найдено: {self.curr}')
 
@@ -198,7 +202,10 @@ class SqlParser(BaseParser):
         if self._is_logical_operator():
             logical_op = self._parse_logical_operator()
             right = self.parse_condition()
-            result = LogicalCondition(logical_op,result, right)
+            logic_node = OperatorNode(logical_op)
+            logic_node.add_child(result)
+            logic_node.add_child(right)
+            result = logic_node
 
         return result
 
@@ -219,22 +226,30 @@ class SqlParser(BaseParser):
         column = self.parse_identifier()
         return OrderByClause(column)
 
-    def parse_select_statement(self) -> SelectStatement:
+    def parse_select_statement(self) -> RootNode:
         """
         selectStatement -> SELECT selectList FROM tableName whereClause? orderByClause? ';'
         """
+        root = RootNode()
+
         self.parse('SELECT')
         columns = self.parse_select_list()
+        for col in columns:
+            root.fields_node.add_column(col)
+
         self.parse('FROM')
         table = self.parse_table_name()
+        root.tables_node.add_table(table)
 
-        where = None
         if self.is_parse('WHERE'):
-            where = self.parse_where_clause()
+            self.parse('WHERE')
+            condition = self.parse_condition()
+            root.add_where_clause(condition)
 
         order_by = None
         if self.is_parse('ORDER'):
             order_by = self.parse_order_by_clause()
+            root.add_child(order_by)
 
         self.parse(';')
 
@@ -242,7 +257,7 @@ class SqlParser(BaseParser):
         if self.pos < len(self.text) and self.curr != '$':
             raise ParsingError(f'Лишний символ {self.curr} в позиции {self.pos}')
 
-        return SelectStatement(table, columns, where, order_by)
+        return root
 
-    def parse_query(self) -> SelectStatement:
+    def parse_query(self) -> RootNode:
         return self.parse_select_statement()

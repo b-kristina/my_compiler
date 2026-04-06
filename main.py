@@ -1,3 +1,5 @@
+from query_executor import QueryExecutor
+from semantic_analyzer import SemanticAnalyzer
 from sql_parser import SqlParser
 from parser_base import ParsingError
 from tree_printer import TreePrinter
@@ -24,21 +26,62 @@ def main():
         "SELECT id, name FROM Users WHERE age > 18;",
         "SELECT name FROM Products WHERE price <= 100 ORDER BY name;",
         "SELECT id FROM Users WHERE age > 18 AND status = 'active';",
-        "SELECT FROM Users;",  # ошибка
+        "SELECT * FROM NonExistentTable;",  # семантическая ошибка
+        "SELECT invalid_col FROM Users;",  # семантическая ошибка
+        "SELECT FROM Users;",  # синтаксическая ошибка
     ]
+
+    analyzer = SemanticAnalyzer()
+    executor = QueryExecutor()
 
     for i, sql in enumerate(test_queries, 1):
         print(f"\n{'=' * 60}")
         print(f"Тест {i}: {sql}")
         print('=' * 60)
 
+        print("\n[1] Синтаксический анализ:")
         ast = parse_sql(sql)
 
-        if ast:
-            print("\n AST Дерево:")
-            TreePrinter.print_tree(ast)
+        if not ast:
+            print("    AST не построено")
+            continue
+
+        print("    Успешно")
+        print("\n    AST Дерево:")
+        TreePrinter.print_tree(ast, prefix="    ")
+
+        print("\n[2] Семантический анализ:")
+        if analyzer.analyze(ast):
+            print("    Ошибок нет")
         else:
-            print("\n AST не построено из-за синтаксических ошибок.")
+            print("    Найдены ошибки:")
+            for error in analyzer.get_errors():
+                print(f"    - {error}")
+            continue
+
+        print("\n[3] Выполнение запроса:")
+        results = executor.execute(ast)
+
+        if results:
+            columns = list(results[0].keys())
+
+            widths = {col: len(col) for col in columns}
+            for row in results:
+                for col in columns:
+                    widths[col] = max(widths[col], len(str(row[col])))
+
+            header = " | ".join(col.ljust(widths[col]) for col in columns)
+            print(f"    {header}")
+            print(f"    {'-' * len(header)}")
+
+            for row in results:
+                line = " | ".join(str(row[col]).ljust(widths[col]) for col in columns)
+                print(f"    {line}")
+
+            print(f"\n    Всего строк: {len(results)}")
+        else:
+            print("    Пустой результат")
+
 
 if __name__ == '__main__':
     main()
