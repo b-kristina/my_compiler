@@ -6,11 +6,25 @@ selectStatement
 
 selectList
     : '*'
-    | column (',' column)*
+    | selectItem (',' selectItem)*
+    ;
+
+selectItem
+    : column
+    | aggregateFunction
     ;
 
 column
     : IDENTIFIER
+    ;
+
+aggregateFunction
+    : COUNT '(' '*' ')'                 # countAll
+    | COUNT '(' column ')'              # countColumn
+    | SUM '(' column ')'                # sumFunction
+    | AVG '(' column ')'                # avgFunction
+    | MIN '(' column ')'                # minFunction
+    | MAX '(' column ')'                # maxFunction
     ;
 
 tableName
@@ -46,6 +60,12 @@ ORDER  : 'ORDER';
 BY     : 'BY';
 AND    : 'AND';
 OR     : 'OR';
+
+COUNT : 'COUNT';
+SUM   : 'SUM';
+AVG   : 'AVG';
+MIN   : 'MIN';
+MAX   : 'MAX';
 
 IDENTIFIER : [a-zA-Z_][a-zA-Z0-9_]*;
 NUMBER     : [0-9]+;

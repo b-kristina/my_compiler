@@ -1,4 +1,5 @@
-from sql_ast import ASTNode, RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode
+from sql_ast import ASTNode, RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode, \
+    AggregateFunctionNode
 from test_data import TEST_DATA, TABLE_SCHEMA
 
 class SemanticError(Exception):
@@ -31,6 +32,8 @@ class SemanticAnalyzer:
         for child in ast.fields_node.children:
             if isinstance(child, ValueNode):
                 columns.append(child.value)
+            elif isinstance(child, AggregateFunctionNode):
+                columns.append(child.column)
 
         if not self._check_columns(columns, table_name):
             return False
@@ -66,6 +69,29 @@ class SemanticAnalyzer:
         for col in columns:
             if not self._check_column_exists(col, table_name):
                 return False
+        return True
+
+    def _check_aggregate_function(self, func: AggregateFunctionNode, table_name: str) -> bool:
+        """Проверяет корректность агрегатной функции"""
+        if func.column == '*':
+            if func.function_name != 'COUNT':
+                self.errors.append(f"Функция {func.function_name} не поддерживает *")
+                return False
+            return True
+
+        if not self._check_column_exists(func.column, table_name):
+            return False
+
+        col_type = self.schema[table_name].get(func.column)
+
+        if func.function_name in ['SUM', 'AVG']:
+            if col_type != 'integer':
+                self.errors.append(
+                    f"Функция {func.function_name} требует числовую колонку, "
+                    f"'{func.column}' имеет тип {col_type}"
+                )
+                return False
+
         return True
 
     def _check_condition(self, condition, table_name: str) -> bool:

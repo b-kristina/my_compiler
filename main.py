@@ -26,9 +26,14 @@ def main():
         "SELECT id, name FROM Users WHERE age > 18;",
         "SELECT name FROM Products WHERE price <= 100 ORDER BY name;",
         "SELECT id FROM Users WHERE age > 18 AND status = 'active';",
-        "SELECT * FROM NonExistentTable;",  # семантическая ошибка
-        "SELECT invalid_col FROM Users;",  # семантическая ошибка
-        "SELECT FROM Users;",  # синтаксическая ошибка
+        "SELECT COUNT(*) FROM Users;",
+        "SELECT SUM(age) FROM Users;",
+        "SELECT AVG(age) FROM Users;",
+        "SELECT MIN(age), MAX(age) FROM Users;",
+        "SELECT COUNT(*) FROM Users WHERE age > 18;",
+        "SELECT * FROM NonExistentTable;",
+        "SELECT invalid_col FROM Users;",
+        "SELECT FROM Users;",
     ]
 
     analyzer = SemanticAnalyzer()

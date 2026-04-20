@@ -1,4 +1,4 @@
-from sql_ast import RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode
+from sql_ast import RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode, AggregateFunctionNode
 from test_data import TEST_DATA
 
 class QueryExecutor:
@@ -28,9 +28,16 @@ class QueryExecutor:
             rows = [row for row in rows if self._evaluate_condition(condition, row)]
 
         columns = []
+        has_aggregate = False
         for child in ast.fields_node.children:
             if isinstance(child, ValueNode):
                 columns.append(child.value)
+            elif isinstance(child, AggregateFunctionNode):
+                columns.append(child)
+                has_aggregate = True
+
+        if has_aggregate:
+            return self._execute_aggregate(columns, rows)
 
         if columns == ['*']:
             return rows
@@ -40,6 +47,37 @@ class QueryExecutor:
                 filtered_row = {col: row.get(col) for col in columns}
                 result.append(filtered_row)
             return result
+
+    def _execute_aggregate(self, columns: list, rows: list) -> list:
+        """Выполняет агрегатные функции"""
+        result = {}
+
+        for col in columns:
+            if isinstance(col, AggregateFunctionNode):
+                func_name = col.function_name
+                column = col.column
+
+                if func_name == 'COUNT':
+                    if column == '*':
+                        result[f'{func_name}'] = len(rows)
+                    else:
+                        result[f'{func_name}'] = len([r for r in rows if r.get(column) is not None])
+                elif func_name == 'SUM':
+                    values = [r.get(column) for r in rows if r.get(column) is not None]
+                    result[f'{func_name}'] = sum(values) if values else 0
+                elif func_name == 'AVG':
+                    values = [r.get(column) for r in rows if r.get(column) is not None]
+                    result[f'{func_name}'] = sum(values) / len(values) if values else 0
+                elif func_name == 'MIN':
+                    values = [r.get(column) for r in rows if r.get(column) is not None]
+                    result[f'{func_name}'] = min(values) if values else None
+                elif func_name == 'MAX':
+                    values = [r.get(column) for r in rows if r.get(column) is not None]
+                    result[f'{func_name}'] = max(values) if values else None
+            else:
+                result[col] = col
+
+        return [result]
 
     def _evaluate_condition(self, condition, row: dict) -> bool:
         """Вычисляет условие WHERE для одной строки"""

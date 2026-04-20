@@ -1,7 +1,7 @@
 from parser_base import BaseParser, ParsingError
 from sql_ast import (
     RootNode, FieldsNode, TablesNode, ConditionsNode,
-    ValueNode, OperatorNode,
+    ValueNode, OperatorNode, AggregateFunctionNode,
     WhereClause, OrderByClause,
     BinaryCondition, LogicalCondition
 )
@@ -61,9 +61,64 @@ class SqlParser(BaseParser):
         else:
             raise ParsingError(f'Ожидается строка, найдено: {self.curr}')
 
+    def parse_aggregate_function(self):
+        """
+        aggregateFunction -> COUNT '(' '*' ')'
+                          | COUNT '(' column ')'
+                          | SUM '(' column ')'
+                          | AVG '(' column ')'
+                          | MIN '(' column ')'
+                          | MAX '(' column ')'
+        """
+        self.ws()
+
+        # определяем тип функции
+        func_name = None
+        if self.text[self.pos:self.pos + 5] == 'COUNT':
+            func_name = 'COUNT'
+            self.pos += 5
+        elif self.text[self.pos:self.pos + 3] == 'SUM':
+            func_name = 'SUM'
+            self.pos += 3
+        elif self.text[self.pos:self.pos + 3] == 'AVG':
+            func_name = 'AVG'
+            self.pos += 3
+        elif self.text[self.pos:self.pos + 3] == 'MIN':
+            func_name = 'MIN'
+            self.pos += 3
+        elif self.text[self.pos:self.pos + 3] == 'MAX':
+            func_name = 'MAX'
+            self.pos += 3
+        else:
+            raise ParsingError(f'Ожидается агрегатная функция, найдено: {self.curr}')
+
+        self.ws()
+
+        if self.curr != '(':
+            raise ParsingError(f'Ожидается (, найдено: {self.curr}')
+        self.pos += 1
+        self.ws()
+
+        # колонка или *
+        if self.curr == '*':
+            self.pos += 1
+            self.ws()
+            column = '*'
+        else:
+            column = self.parse_identifier()
+
+        self.ws()
+        if self.curr != ')':
+            raise ParsingError(f'Ожидается ), найдено: {self.curr}')
+        self.pos += 1
+        self.ws()
+
+        return AggregateFunctionNode(func_name, column)
+
     def parse_select_list(self):
         """
-        selectList -> '*' | column (',' column)*
+        selectList -> '*' | selectItem (',' selectItem)*
+        selectItem -> column | aggregateFunction
         """
         self.ws()
         if self.curr == '*':
@@ -71,11 +126,40 @@ class SqlParser(BaseParser):
             self.ws()
             return ['*']
 
-        columns = [self.parse_identifier()]
+        items = []
+
+        # первый элемент
+        if self._is_aggregate_function():
+            items.append(self.parse_aggregate_function())
+        else:
+            items.append(self.parse_identifier())
+
+        # остальные элементы через запятую
         while self.is_parse(','):
             self.parse(',')
-            columns.append(self.parse_identifier())
-        return columns
+            if self._is_aggregate_function():
+                items.append(self.parse_aggregate_function())
+            else:
+                items.append(self.parse_identifier())
+
+        return items
+
+    def _is_aggregate_function(self) -> bool:
+        """
+        Проверка на агрегатную функцию (COUNT, SUM, AVG, MIN, MAX)
+        """
+        self.ws()
+        pos = self.pos
+
+        functions = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']
+        for func in functions:
+            if self.text[pos:pos + len(func)] == func:
+                # проверяем что дальше пробел или (
+                next_char = self.text[pos + len(func)] if pos + len(func) < len(self.text) else '$'
+                if next_char.isspace() or next_char == '(':
+                    return True
+
+        return False
 
     def parse_table_name(self) -> str:
         """

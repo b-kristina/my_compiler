@@ -47,9 +47,12 @@ class FieldsNode(ASTNode):
         super().__init__("FIELDS")
         self.columns = []
 
-    def add_column(self, column: str):
+    def add_column(self, column):
         self.columns.append(column)
-        self.add_child(ValueNode(column))
+        if isinstance(column, str):
+            self.add_child(ValueNode(column))
+        else:
+            self.add_child(column)
 
 
 class TablesNode(ASTNode):
@@ -78,6 +81,15 @@ class ValueNode(ASTNode):
     def __init__(self, value: str):
         super().__init__(value)
         self.value = value
+
+
+class AggregateFunctionNode(ASTNode):
+    """Узел для агрегатных функций (COUNT, SUM, AVG, MIN, MAX)"""
+    def __init__(self, function_name: str, column: str):
+        super().__init__(function_name)
+        self.function_name = function_name
+        self.column = column
+        self.add_child(ValueNode(column))
 
 
 class SelectStatement(ASTNode):
