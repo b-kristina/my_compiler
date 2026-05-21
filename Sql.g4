@@ -1,7 +1,7 @@
 grammar Sql;
 
 selectStatement
-    : SELECT selectList FROM tableName (WHERE condition)? (ORDER BY orderByColumn)? ';'
+    : SELECT selectList FROM tableName (WHERE condition)? (GROUP BY groupByColumn)? (ORDER BY orderByColumn)? ';'
     ;
 
 selectList
@@ -28,6 +28,10 @@ aggregateFunction
     ;
 
 tableName
+    : IDENTIFIER
+    ;
+
+groupByColumn
     : IDENTIFIER
     ;
 
@@ -58,6 +62,7 @@ FROM   : 'FROM';
 WHERE  : 'WHERE';
 ORDER  : 'ORDER';
 BY     : 'BY';
+GROUP  : 'GROUP';
 AND    : 'AND';
 OR     : 'OR';
 

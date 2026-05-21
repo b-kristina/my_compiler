@@ -1,4 +1,5 @@
 from query_executor import QueryExecutor
+from code_generator import PythonCodeGenerator
 from semantic_analyzer import SemanticAnalyzer
 from sql_parser import SqlParser
 from parser_base import ParsingError
@@ -31,6 +32,8 @@ def main():
         "SELECT AVG(age) FROM Users;",
         "SELECT MIN(age), MAX(age) FROM Users;",
         "SELECT COUNT(*) FROM Users WHERE age > 18;",
+        "SELECT status, COUNT(*) FROM Users GROUP BY status;",
+        "SELECT category, AVG(price) FROM Products GROUP BY category;",
         "SELECT * FROM NonExistentTable;",
         "SELECT invalid_col FROM Users;",
         "SELECT FROM Users;",
@@ -38,6 +41,7 @@ def main():
 
     analyzer = SemanticAnalyzer()
     executor = QueryExecutor()
+    generator = PythonCodeGenerator()
 
     for i, sql in enumerate(test_queries, 1):
         print(f"\n{'=' * 60}")
@@ -64,8 +68,13 @@ def main():
                 print(f"    - {error}")
             continue
 
-        print("\n[3] Выполнение запроса:")
-        results = executor.execute(ast)
+        print("\n[3] Генерация исполняемого кода:")
+        generated_source = generator.generate(ast)
+        for line in generated_source.rstrip().splitlines():
+            print(f"    {line}")
+
+        print("\n[4] Выполнение сгенерированного кода:")
+        results = generator.execute(ast, executor.data)
 
         if results:
             columns = list(results[0].keys())

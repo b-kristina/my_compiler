@@ -1,5 +1,6 @@
-from sql_ast import ASTNode, RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode, AggregateFunctionNode
-
+from sql_ast import (ASTNode, RootNode, FieldsNode, TablesNode, ConditionsNode,
+                     ValueNode, OperatorNode,
+                     AggregateFunctionNode, GroupByClause)
 
 class TreePrinter:
     """Визуализация AST-дерева"""

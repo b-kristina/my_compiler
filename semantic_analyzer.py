@@ -1,5 +1,5 @@
 from sql_ast import ASTNode, RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode, \
-    AggregateFunctionNode
+    AggregateFunctionNode, GroupByClause
 from test_data import TEST_DATA, TABLE_SCHEMA
 
 class SemanticError(Exception):
@@ -38,6 +38,10 @@ class SemanticAnalyzer:
         if not self._check_columns(columns, table_name):
             return False
 
+        if ast.group_by_node.column:
+            if not self._check_group_by(ast.group_by_node, table_name):
+                return False
+
         if ast.conditions_node.children:
             for child in ast.conditions_node.children:
                 if isinstance(child, OperatorNode):
@@ -69,6 +73,12 @@ class SemanticAnalyzer:
         for col in columns:
             if not self._check_column_exists(col, table_name):
                 return False
+        return True
+
+    def _check_group_by(self, group_by: GroupByClause, table_name: str) -> bool:
+        """Проверяет корректность GROUP BY"""
+        if not self._check_column_exists(group_by.column, table_name):
+            return False
         return True
 
     def _check_aggregate_function(self, func: AggregateFunctionNode, table_name: str) -> bool:

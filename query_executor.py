@@ -1,4 +1,4 @@
-from sql_ast import RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode, AggregateFunctionNode
+from sql_ast import RootNode, FieldsNode, TablesNode, ConditionsNode, ValueNode, OperatorNode, AggregateFunctionNode, GroupByClause
 from test_data import TEST_DATA
 
 class QueryExecutor:
@@ -36,8 +36,18 @@ class QueryExecutor:
                 columns.append(child)
                 has_aggregate = True
 
+        group_by_column = None
+        if ast.group_by_node.column:
+            group_by_column = ast.group_by_node.column
+
         if has_aggregate:
-            return self._execute_aggregate(columns, rows)
+            if group_by_column:
+                return self._execute_aggregate_group_by(columns, rows, group_by_column)
+            else:
+                return self._execute_aggregate(columns, rows)
+
+        if group_by_column:
+            return self._execute_group_by(columns, rows, group_by_column)
 
         if columns == ['*']:
             return rows
@@ -47,6 +57,61 @@ class QueryExecutor:
                 filtered_row = {col: row.get(col) for col in columns}
                 result.append(filtered_row)
             return result
+
+    def _execute_group_by(self, columns: list, rows: list, group_by_column: str) -> list:
+        """Выполняет группировку без агрегатов"""
+        groups = {}
+        for row in rows:
+            key = row.get(group_by_column)
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(row)
+
+        result = []
+        for key, group_rows in groups.items():
+            result.append({group_by_column: key})
+
+        return result
+
+    def _execute_aggregate_group_by(self, columns: list, rows: list, group_by_column: str) -> list:
+        """Выполняет агрегатные функции с группировкой"""
+        groups = {}
+        for row in rows:
+            key = row.get(group_by_column)
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(row)
+
+        result = []
+        for key, group_rows in groups.items():
+            row_result = {group_by_column: key}
+
+            for col in columns:
+                if isinstance(col, AggregateFunctionNode):
+                    func_name = col.function_name
+                    column = col.column
+
+                    if func_name == 'COUNT':
+                        if column == '*':
+                            row_result[f'{func_name}'] = len(group_rows)
+                        else:
+                            row_result[f'{func_name}'] = len([r for r in group_rows if r.get(column) is not None])
+                    elif func_name == 'SUM':
+                        values = [r.get(column) for r in group_rows if r.get(column) is not None]
+                        row_result[f'{func_name}'] = sum(values) if values else 0
+                    elif func_name == 'AVG':
+                        values = [r.get(column) for r in group_rows if r.get(column) is not None]
+                        row_result[f'{func_name}'] = sum(values) / len(values) if values else 0
+                    elif func_name == 'MIN':
+                        values = [r.get(column) for r in group_rows if r.get(column) is not None]
+                        row_result[f'{func_name}'] = min(values) if values else None
+                    elif func_name == 'MAX':
+                        values = [r.get(column) for r in group_rows if r.get(column) is not None]
+                        row_result[f'{func_name}'] = max(values) if values else None
+
+            result.append(row_result)
+
+        return result
 
     def _execute_aggregate(self, columns: list, rows: list) -> list:
         """Выполняет агрегатные функции"""
@@ -74,8 +139,6 @@ class QueryExecutor:
                 elif func_name == 'MAX':
                     values = [r.get(column) for r in rows if r.get(column) is not None]
                     result[f'{func_name}'] = max(values) if values else None
-            else:
-                result[col] = col
 
         return [result]
 

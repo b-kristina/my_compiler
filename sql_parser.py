@@ -2,7 +2,7 @@ from parser_base import BaseParser, ParsingError
 from sql_ast import (
     RootNode, FieldsNode, TablesNode, ConditionsNode,
     ValueNode, OperatorNode, AggregateFunctionNode,
-    WhereClause, OrderByClause,
+    WhereClause, OrderByClause, GroupByClause,
     BinaryCondition, LogicalCondition
 )
 
@@ -301,6 +301,15 @@ class SqlParser(BaseParser):
         condition = self.parse_condition()
         return WhereClause(condition)
 
+    def parse_group_by_clause(self):
+        """
+        groupByClause -> GROUP BY IDENTIFIER
+        """
+        self.parse('GROUP')
+        self.parse('BY')
+        column = self.parse_identifier()
+        return GroupByClause(column)
+
     def parse_order_by_clause(self):
         """
         orderByClause -> ORDER BY IDENTIFIER
@@ -312,7 +321,7 @@ class SqlParser(BaseParser):
 
     def parse_select_statement(self) -> RootNode:
         """
-        selectStatement -> SELECT selectList FROM tableName whereClause? orderByClause? ';'
+        selectStatement -> SELECT selectList FROM tableName (WHERE condition)? (GROUP BY column)? (ORDER BY column)? ';'
         """
         root = RootNode()
 
@@ -329,6 +338,10 @@ class SqlParser(BaseParser):
             self.parse('WHERE')
             condition = self.parse_condition()
             root.add_where_clause(condition)
+
+        if self.is_parse('GROUP'):
+            group_by = self.parse_group_by_clause()
+            root.add_group_by_clause(group_by.column)
 
         order_by = None
         if self.is_parse('ORDER'):

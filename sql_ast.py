@@ -21,6 +21,7 @@ class RootNode(ASTNode):
         self.tables_node = TablesNode()
         self.where_keyword = KeywordNode("WHERE")
         self.conditions_node = ConditionsNode()
+        self.group_by_node = GroupByClause(None)
 
         self.add_child(self.select_keyword)
         self.add_child(self.fields_node)
@@ -33,6 +34,12 @@ class RootNode(ASTNode):
             self.add_child(self.where_keyword)
             self.conditions_node.set_condition(condition)
             self.add_child(self.conditions_node)
+
+    def add_group_by_clause(self, column):
+        """Добавляет GROUP BY только если есть колонка"""
+        if column is not None:
+            self.group_by_node = GroupByClause(column)
+            self.add_child(self.group_by_node)
 
 
 class KeywordNode(ASTNode):
@@ -74,6 +81,15 @@ class ConditionsNode(ASTNode):
     def set_condition(self, condition):
         if condition is not None:
             self.add_child(condition)
+
+
+class GroupByClause(ASTNode):
+    """Узел: GROUP BY"""
+    def __init__(self, column):
+        super().__init__("GROUP BY")
+        self.column = column
+        if column:
+            self.add_child(ValueNode(column))
 
 
 class ValueNode(ASTNode):
